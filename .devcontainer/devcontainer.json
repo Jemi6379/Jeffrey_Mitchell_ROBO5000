@@ -1,0 +1,28 @@
+{
+	"name": "Ubuntu",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-azuretools.vscode-docker",
+				"redhat.vscode-yaml",
+				"timonwong.shellcheck",
+				"anthropic.claude-code",
+				"esbenp.prettier-vscode",
+				"dbaeumer.vscode-eslint"
+			],
+			"settings": {
+				"terminal.integrated.defaultProfile.linux": "bash"
+			}
+		}
+	},
+	"features": {
+		"ghcr.io/devcontainers/features/docker-outside-of-docker": {
+			"moby": false,
+			"version": "latest"
+		},
+		"ghcr.io/devcontainers/features/python:1": { "version": "3.12" }
+	}
+}
