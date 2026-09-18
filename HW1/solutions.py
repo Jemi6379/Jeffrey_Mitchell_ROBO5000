@@ -45,6 +45,8 @@ def primes(a: int, b: int) -> List[int]:
     return prime_list
 
 def is_prime(n: int) -> bool:
+    if n <= 1: return False
+    
     for candidate in range(2, floor(sqrt(n)) + 1):
         if n % candidate == 0:
             return False
@@ -185,3 +187,13 @@ def polynomial_fitting():
     ax.set_title('3D Polynomial Regression (Degree 2)')
 
     plt.show()
+
+def main():
+    print(nearest_armstrong(100))
+    print(primes(0, 97))
+    draw_circle()
+    password_comparator()
+    polynomial_fitting()
+
+if __name__ == 'main':
+    main()
