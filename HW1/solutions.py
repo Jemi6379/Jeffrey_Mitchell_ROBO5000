@@ -1,5 +1,5 @@
 # HW1 solutions
-# work in progress - to the extent it exists - can be found in sandbox.ipynb
+# solutions arrived at through work in the root level sandbox.ipynb, catalogued here.
 
 from typing import List
 from math import sqrt, floor, pi
@@ -8,6 +8,10 @@ import matplotlib.pyplot as plt
 from sklearn.pipeline import make_pipeline
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
+
+from pathlib import Path
+DATA = Path(__file__).parent / "data" / "q5.csv"
+
 
 # 2.a)
 def nearest_armstrong(n: int) -> int:
@@ -21,6 +25,10 @@ def nearest_armstrong(n: int) -> int:
 
 
 def is_armstrong(n: int) -> bool:
+    # we're just gonna assume that negative numbers can't be armstrong
+    # from the definition that seems to be the case? In any event, this is super
+    # inefficient - constantly calling this function in the negative range
+    # when we no it will never hit. Oh well! Not being graded on efficiency :^)
     if n < 0: return False
     
     digits = [int(c) for c in str(n)]
@@ -67,10 +75,13 @@ def draw_circle() -> None:
     plt.show()
     
 # 4
-def password_comparator() -> tuple[str, int]:
+def password_comparator():
     pass_a = input("Enter password A:")
     pass_b = input("Enter password B:")
     
+    # I think this is super cute
+    # one routine per rule with a consistent API: you give me the password, I return a score as
+    # dictated by this particular rule. We then sum up contributions from all rules, and select the winner
     scorers = [char_score, pair_score, special_score, number_score, repeat_score]
     
     a = (pass_a, sum([score(pass_a) for score in scorers]))
@@ -85,6 +96,9 @@ def char_score(password: str) -> int:
     return max(len(password)-8, 0)
 
 def pair_score(password: str) -> int:
+    # sort chars into respective list by case
+    # naturally, the shortest of the two will limit the number of pairs
+    # that can be formed
     uppers: List[str] = []
     lowers: List[str] = []
     
@@ -101,18 +115,24 @@ def pair_score(password: str) -> int:
     return 2 * pair_ct
 
 def special_score(password: str) -> int:
+    # short circuit on first special char encountered
+    # if none encountered, -10
     for c in password:
         if not c.isalpha() and not c.isnumeric(): return 0
         
     return -10
 
 def number_score(password: str) -> int:
+    # short circuit on first number encountered
+    # if none encountered, -10
     for c in password:
         if c.isnumeric(): return 0
         
     return -10
 
 def repeat_score(password: str) -> int:
+    # sliding window. Luckily contiguous blocks > 3 are counted multiple times
+    # much simpler
     repeats = 0
     for i in range(len(password)-2):
         if password[i] == password[i+1] and password[i+1] == password[i+2]: 
@@ -123,7 +143,7 @@ def repeat_score(password: str) -> int:
 # 5
 def polynomial_fitting():
 
-    data = np.loadtxt('/workspaces/Jeffrey_Mitchell_ROBO5000/hw1_jeffrey_mitchell/data/q5.csv', dtype='float', delimiter=',')
+    data = np.loadtxt(DATA, dtype='float', delimiter=',')
 
     x = data[:,0]
     y = data[:,1]
@@ -131,8 +151,13 @@ def polynomial_fitting():
 
     xy = data[:,:2]
 
+    linear_regression = LinearRegression(fit_intercept=True)
+    linear_regression.fit(xy, z)
+    # 0.9901931581584443 R^2 - already sufficient
+
     polynomial_regression = make_pipeline(PolynomialFeatures(2), LinearRegression())
     polynomial_regression.fit(xy, z)
+    # 0.99038458307019 R^2 - very marginally better? I guess?
 
     x_space = np.linspace(0, 10, 100)
     y_space = np.linspace(0, 10, 100)
@@ -143,10 +168,14 @@ def polynomial_fitting():
     Z_pred = polynomial_regression.predict(grid)
 
 
-    fig, ax = plt.subplots(subplot_kw={'projection': '3d'})
+    _, ax = plt.subplots(subplot_kw={'projection': '3d'})
 
 
     ax.plot_surface(XX, YY, Z_pred.reshape(XX.shape), cmap='viridis', alpha=0.6)
+    # ax.set_xlim([0,10])
+    # ax.set_ylim([0,10])
+    # ax.set_zlim([0,300])
+
     ax.scatter(x, y, z)
 
     ax.set_xlabel('X')
