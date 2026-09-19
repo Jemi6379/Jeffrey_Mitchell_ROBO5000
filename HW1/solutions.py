@@ -1,3 +1,6 @@
+# Collaborators: I asked my CP1 partner, Nolan A, what his q5 plot looked like,
+# as I was surprised to see a plane rather than a curved surface
+
 # HW1 solutions
 # solutions arrived at through work in the root level sandbox.ipynb, catalogued here.
 
@@ -28,7 +31,7 @@ def is_armstrong(n: int) -> bool:
     # we're just gonna assume that negative numbers can't be armstrong
     # from the definition that seems to be the case? In any event, this is super
     # inefficient - constantly calling this function in the negative range
-    # when we no it will never hit. Oh well! Not being graded on efficiency :^)
+    # when we know it will never hit. Oh well! Not being graded on efficiency :^)
     if n < 0: return False
     
     digits = [int(c) for c in str(n)]
@@ -195,5 +198,5 @@ def main():
     password_comparator()
     polynomial_fitting()
 
-if __name__ == 'main':
+if __name__ == '__main__':
     main()
