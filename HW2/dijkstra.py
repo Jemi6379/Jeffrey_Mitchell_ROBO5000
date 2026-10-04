@@ -15,7 +15,7 @@ Instructions:
 3. The main algorithm steps are in the `planning` method
 4. Test your implementation with different obstacle configurations in main()
 
-Full Name: ADD YOUR NAME HERE
+Full Name: JEFFREY MITCHELL
 """
 
 import math
@@ -58,24 +58,24 @@ class Dijkstra:
             self.motion: List of possible movement directions and their costs
         """
         # Grid world boundaries (initialized in calc_obstacle_map)
-        self.min_x = None
-        self.min_y = None
-        self.max_x = None
-        self.max_y = None
+        self.min_x: float
+        self.min_y: float
+        self.max_x: float
+        self.max_y: float
         # Grid dimensions in number of cells (initialized in calc_obstacle_map)
-        self.x_width = None
-        self.y_width = None
+        self.x_width: int
+        self.y_width: int
         # 2D array marking obstacle locations (initialized in calc_obstacle_map)
-        self.obstacle_map = None
+        self.obstacle_map: List[List[bool]]
 
         # Grid cell size
-        self.resolution = resolution
+        self.resolution: float = resolution
         # Robot's physical size for collision checking
-        self.robot_radius = robot_radius
+        self.robot_radius: float = robot_radius
         # Create obstacle map from given coordinates
         self.calc_obstacle_map(obstacle_x, obstacle_y)
         # Get possible movement directions and their costs
-        self.motion = self.get_motion_model()
+        self.motion: List[List[float]] = self.get_motion_model()
 
     class Node:
         """A node in the Dijkstra search grid."""
@@ -90,10 +90,10 @@ class Dijkstra:
                 cost: Cost to reach this node from start
                 parent_index: Index of parent node in the closed set
             """
-            self.x = x  # index of grid
-            self.y = y  # index of grid
-            self.cost = cost
-            self.parent_index = parent_index  # index of previous Node
+            self.x: int = x  # index of grid
+            self.y: int = y  # index of grid
+            self.cost: float = cost
+            self.parent_index: int = parent_index  # index of previous Node
 
     def planning(
         self, start_x: float, start_y: float, goal_x: float, goal_y: float
@@ -140,14 +140,17 @@ class Dijkstra:
             -1,
         )
 
-        open_set, closed_set = dict(), dict()
+        open_set: Dict[int, Dijkstra.Node] = dict()
+        closed_set: Dict[int, Dijkstra.Node] = dict()
         open_set[self.calc_grid_index(start_node)] = start_node
+        goal_idx = self.calc_grid_index(goal_node)
 
         while True:
             # YOUR CODE GOES HERE
             # Find the Node in open_set with least cost and assign it to current
-            current = None  # Replace None with code to assign the least costly node in open_set
-
+            # current = None  # Replace None with code to assign the least costly node in open_set
+            current_idx, current = min(open_set.items(), key= lambda item: item[1].cost)
+                        
             # DO NOT ALTER THE NEXT 8 LINES.
             if show_animation:  # pragma: no cover
                 plt.plot(
@@ -165,15 +168,41 @@ class Dijkstra:
             # YOUR CODE GOES HERE
             # 1. Check if current node is goal node:
             #    - If yes: Update goal_node.parent_index and cost, then break
-
+            if current_idx == goal_idx:
+                goal_node.parent_index = current.parent_index
+                goal_node.cost = current.cost
+                break
+                
             # 2. Move current node from open_set to closed_set
+            open_set.pop(current_idx)
+            closed_set[current_idx] = current
 
             # 3. Expand neighbors using motion model:
             #    - Skip if in closed_set
             #    - Skip if out of bounds
             #    - Add to open_set if new
             #    - Update if better path found
+            for dx, dy, move_cost in self.motion:
+                prospective_neighbor = self.Node(
+                    current.x + int(dx),
+                    current.y + int(dy),
+                    current.cost + move_cost,
+                    current_idx,
+                )
+                neighbor_idx = self.calc_grid_index(prospective_neighbor)
 
+                if neighbor_idx in closed_set: continue
+                # bounds and obstacles
+                if not self.verify_node(prospective_neighbor): continue
+                
+                if neighbor_idx not in open_set: 
+                    open_set[neighbor_idx] = prospective_neighbor
+                else:
+                    existing_neighbor = open_set[neighbor_idx]
+                    if prospective_neighbor.cost <= existing_neighbor.cost:
+                        existing_neighbor.cost = prospective_neighbor.cost
+                        existing_neighbor.parent_index = current_idx
+                    
         rx, ry = self.calc_final_path(goal_node, closed_set)
         return rx, ry
 
@@ -190,9 +219,8 @@ class Dijkstra:
         Returns:
             rx, ry: Lists of x and y coordinates of the path
         """
-        rx, ry = [self.calc_grid_position(goal_node.x, self.min_x)], [
-            self.calc_grid_position(goal_node.y, self.min_y)
-        ]
+        rx: List[float] = [self.calc_grid_position(goal_node.x, self.min_x)]
+        ry: List[float] = [self.calc_grid_position(goal_node.y, self.min_y)]
         parent_index = goal_node.parent_index
         while parent_index != -1:
             n = closed_set[parent_index]
@@ -240,6 +268,16 @@ class Dijkstra:
             Unique grid index
         """
         return node.y * self.x_width + node.x
+    
+    # tiny routine to detect OOB
+    def bounds_check(self, node: Node) -> bool:
+        if (node.x < 0 or node.x >= self.x_width) or (node.y < 0 or node.y >= self.y_width):
+            return False
+        
+        return True
+    # tiny routine to detect collision with obstacles, provided obstacle_map maintained
+    def obstacle_check(self, node: Node) -> bool:
+        return not self.obstacle_map[node.x][node.y]
 
     def verify_node(self, node: Node) -> bool:
         """
@@ -268,7 +306,20 @@ class Dijkstra:
         # YOUR CODE GOES HERE
         # Verify if the node is within bounds and isn't colliding with an obstacle
         # Return False if node is invalid. Otherwise, return True
-        pass  # REMOVE THIS LINE WHEN DONE
+        
+        return self.bounds_check(node) and self.obstacle_check(node)
+
+    # routine that takes a point, all obstacles and checks for collision given known radius
+    def is_grid_cell_blocked(self, x: int, y: int, obstacle_x: List[float], obstacle_y: List[float]) -> bool:
+        
+        # convert grid indices back to world indices
+        px = self.calc_grid_position(x, self.min_x)
+        py = self.calc_grid_position(y, self.min_y)
+
+        for obstacle in zip(obstacle_x, obstacle_y):
+            if math.dist((px, py), obstacle) < self.robot_radius: return True
+            
+        return False
 
     def calc_obstacle_map(
         self, obstacle_x: List[float], obstacle_y: List[float]
@@ -310,15 +361,25 @@ class Dijkstra:
         # YOUR CODE GOES HERE
         # Find the minimum and maximum bounds for x and y
         # Use the bounds to obtain the width along x and y axes and store them in self.x_width and self.y_width respectively
+        
+        # windowing in on our obstacles, which implicitly sets the bounds of our sim. Pretty funky
+        self.min_x = min(obstacle_x)
+        self.min_y = min(obstacle_y)
+        
+        self.max_x = max(obstacle_x)
+        self.max_y = max(obstacle_y)
+        
+        self.x_width = round((self.max_x - self.min_x) / self.resolution)
+        self.y_width = round((self.max_y - self.min_y) / self.resolution)
 
         # DO NOT ALTER THE NEXT TWO LINES.
         self.obstacle_map = [
             [False for _ in range(self.y_width)] for _ in range(self.x_width)
         ]
-
-        # For each cell in self.obstacle_map, use the calculations above to assign it as
-        # boolean True if the cell overlaps with an obstacle and boolean False if it doesn't
-        pass  # REMOVE THIS LINE WHEN DONE
+        
+        for x in range(self.x_width):
+            for y in range(self.y_width):
+                self.obstacle_map[x][y] = self.is_grid_cell_blocked(x,y,obstacle_x,obstacle_y)
 
     @staticmethod
     def get_motion_model() -> List[List[float]]:
@@ -329,7 +390,7 @@ class Dijkstra:
             List of [dx, dy, cost] for each possible movement
         """
         # dx, dy, cost
-        motion = [
+        motion: List[List[float]] = [
             [1, 0, 1],
             [0, 1, 1],
             [-1, 0, 1],
@@ -342,7 +403,7 @@ class Dijkstra:
         return motion
 
 
-def main():
+def main() -> None:
     print(__file__ + " start!!")
 
     # start and goal position
@@ -354,7 +415,8 @@ def main():
     robot_radius = 1.0  # [m]
 
     # Feel free to change the obstacle positions and test the implementation on various scenarios
-    obstacle_x, obstacle_y = [], []
+    obstacle_x: List[float] = []
+    obstacle_y: List[float] = []
     for i in range(0, 60):
         obstacle_x.append(i)
         obstacle_y.append(0.0)
