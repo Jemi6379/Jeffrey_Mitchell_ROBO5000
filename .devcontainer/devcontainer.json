@@ -11,7 +11,8 @@
 				"timonwong.shellcheck",
 				"anthropic.claude-code",
 				"esbenp.prettier-vscode",
-				"dbaeumer.vscode-eslint"
+				"dbaeumer.vscode-eslint",
+				"tomoki1207.pdf"
 			],
 			"settings": {
 				"terminal.integrated.defaultProfile.linux": "bash"
