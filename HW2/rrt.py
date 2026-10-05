@@ -15,7 +15,7 @@ Instructions:
 3. The main algorithm steps are in the `planning` and `steer` methods
 4. Test your implementation with different obstacle configurations
 
-Full Name: ADD YOUR NAME HERE
+Full Name: JEFFREY MITCHELL
 """
 
 import math
@@ -42,8 +42,8 @@ class RRT:
                 x: X coordinate
                 y: Y coordinate
             """
-            self.x = x
-            self.y = y
+            self.x: float = x
+            self.y: float = y
             self.path_x: List[float] = []
             self.path_y: List[float] = []
             self.parent: Optional["RRT.Node"] = None
@@ -58,10 +58,10 @@ class RRT:
             Args:
                 area: List of [xmin, xmax, ymin, ymax]
             """
-            self.xmin = float(area[0])
-            self.xmax = float(area[1])
-            self.ymin = float(area[2])
-            self.ymax = float(area[3])
+            self.xmin: float = float(area[0])
+            self.xmax: float = float(area[1])
+            self.ymin: float = float(area[2])
+            self.ymax: float = float(area[3])
 
     def __init__(
         self,
@@ -106,25 +106,26 @@ class RRT:
             self.robot_radius: Robot's physical size for collision checking
         """
         # Create Node objects for start and goal positions
-        self.start = self.Node(start[0], start[1])
-        self.end = self.Node(goal[0], goal[1])
+        self.start: "RRT.Node" = self.Node(start[0], start[1])
+        self.end: "RRT.Node" = self.Node(goal[0], goal[1])
         # Random sampling bounds
-        self.min_rand = rand_area[0]
-        self.max_rand = rand_area[1]
+        self.min_rand: float = rand_area[0]
+        self.max_rand: float = rand_area[1]
         # Create AreaBounds object if play_area is specified
+        self.play_area: Optional["RRT.AreaBounds"]
         if play_area is not None:
             self.play_area = self.AreaBounds(play_area)
         else:
             self.play_area = None
         # Tree expansion parameters
-        self.expand_dis = expand_dis
-        self.path_resolution = path_resolution
-        self.goal_sample_rate = goal_sample_rate
-        self.max_iter = max_iter
+        self.expand_dis: float = expand_dis
+        self.path_resolution: float = path_resolution
+        self.goal_sample_rate: int = goal_sample_rate
+        self.max_iter: int = max_iter
         # Environment and planning data
-        self.obstacle_list = obstacle_list
-        self.node_list = []
-        self.robot_radius = robot_radius
+        self.obstacle_list: List[Tuple[float, float, float]] = obstacle_list
+        self.node_list: List["RRT.Node"] = []
+        self.robot_radius: float = robot_radius
 
     def get_random_node(self) -> "RRT.Node":
         """
@@ -146,15 +147,25 @@ class RRT:
         # YOUR CODE GOES HERE
         # Use goal_sample_rate to bias sampling towards goal
         # Sample random position within bounds
-        pass
-    
-    def calc_dist_to_goal(self, x, y):
+        
+        
+        if random.randint(0, 100) < self.goal_sample_rate:
+            # goal sample
+            return self.Node(self.end.x, self.end.y)
+        else:
+            # random sample
+            x = random.uniform(self.min_rand, self.max_rand)
+            y = random.uniform(self.min_rand, self.max_rand)
+            
+            return RRT.Node(x,y)
+
+    def calc_dist_to_goal(self, x: float, y: float) -> float:
         """Calculate distance from current position to the goal."""
         dx = x - self.end.x
         dy = y - self.end.y
         return math.hypot(dx, dy)
 
-    def generate_final_course(self, goal_ind):
+    def generate_final_course(self, goal_ind: int) -> List[Tuple[float, float]]:
         """Generate the final path from the goal node to the start node.
 
         Args:
@@ -163,7 +174,7 @@ class RRT:
         Returns:
             path: List of points along the path
         """
-        path = []
+        path: List[Tuple[float, float]] = []
         node = self.node_list[goal_ind]
 
         # For standard RRT, just use node positions
@@ -201,19 +212,40 @@ class RRT:
         """
         self.node_list = [self.start]
 
-        rnd_node = None
+        rnd_node: Optional["RRT.Node"] = None
         for i in range(self.max_iter):
             # YOUR CODE GOES HERE
             # Use get_random_node() to sample a random configuration
             # Find nearest node in the tree
-            # Steer towards the sampled node 
+            # Steer towards the sampled node
             # Check for collisions and validity
+            
+            rnd_node = self.get_random_node()
+            nearest_node = self.find_nearest_node(rnd_node)
+            steered_node = self.steer(nearest_node, rnd_node, self.expand_dis)
+            
+            collision_free = self.check_collision(steered_node, self.obstacle_list)
+            if collision_free: self.node_list.append(steered_node)
+
             # DO NOT ALTER THE NEXT 2 LINES
             if animation and i % 5 == 0:
                 self.draw_graph(rnd_node)
+
             # YOUR CODE GOES HERE
             # Check if goal is reachable from new node
-                # from current node connect to goal node and find the path - return path after plotting path (below)
+            # from current node connect to goal node and find the path - return path after plotting path (below)
+            path: Optional[List[Tuple[float, float]]] = None
+            if not collision_free: continue
+            if not self.calc_dist_to_goal(steered_node.x, steered_node.y) <= self.expand_dis: continue
+            
+            final_node_candidate = self.steer(steered_node, self.end, self.expand_dis)
+                
+            if not self.check_collision(final_node_candidate, self.obstacle_list): continue
+            
+            self.node_list.append(final_node_candidate)
+            path = self.generate_final_course(len(self.node_list) - 1)
+            
+            if path is not None:
                 if animation:
                     # For standard RRT, plot straight lines
                     path_x = [x for (x, y) in path]
@@ -225,8 +257,9 @@ class RRT:
                         linewidth=2,
                         label="Final Path",
                     )
-                plt.legend()
-                plt.pause(0.01)
+                    plt.legend()
+                    plt.pause(0.01)
+                return path
 
         return None
 
@@ -273,12 +306,33 @@ class RRT:
         # If the robot is colliding with an obstacle, then stop the propagation
         # Append the coordinates of the robot into new_node.path_x and new_node.path_y
 
+        # walk along path to new node
+        extend_length = min(extend_length, distance)
+        steps = math.floor(extend_length / self.path_resolution)
+        for step in range(1, steps + 1):
+            h = self.path_resolution * step
+            new_node.path_x.append(from_node.x + math.cos(theta) * h)
+            new_node.path_y.append(from_node.y + math.sin(theta) * h)
+
+        new_node.x = new_node.path_x[-1]
+        new_node.y = new_node.path_y[-1]
+
+        
         d, _ = self.calc_distance_and_angle(
             new_node, to_node
         )  # We want to check if the robot has reached to_node
         # YOUR CODE GOES HERE
         # Check if the robot has reached to_node. If yes, add to_node coordinates to the path of new_node
         # Add from_node as parent of new_node
+        
+        # snap
+        if d <= self.path_resolution:
+            new_node.path_x.append(to_node.x)
+            new_node.path_y.append(to_node.y)
+            new_node.x = to_node.x
+            new_node.y = to_node.y
+            
+        new_node.parent = from_node
 
         return new_node
 
@@ -304,11 +358,15 @@ class RRT:
            relative to x-axis (use math.atan2)
         3. Return distance and angle
         """
-        distance = None
-        theta = None
+        distance: float
+        theta: float
         # YOUR CODE GOES HERE
         # Write code to find the distance between from_node and to_node
         # and the angle made by the line joining from_node and to_node with the x_axis
+        
+        distance = math.dist((from_node.x, from_node.y), (to_node.x, to_node.y))
+        theta = math.atan2(to_node.y - from_node.y, to_node.x - from_node.x)
+        
         return distance, theta
 
     def find_nearest_node(self, node: "RRT.Node") -> "RRT.Node":
@@ -329,9 +387,12 @@ class RRT:
         4. Update nearest node if current distance is smaller
         5. Return the nearest node found
         """
-        nearest_node = None
-        min_distance = float("inf")
+        # nearest_node = None
+        # min_distance: float = float("inf")
         # YOUR CODE HERE
+        
+        nearest_node = min(self.node_list, key=lambda candidate_node: math.dist((node.x, node.y), (candidate_node.x, candidate_node.y)))
+        
         return nearest_node
 
     def check_collision(
@@ -355,9 +416,15 @@ class RRT:
         2. Return True if no collisions, False otherwise
         """
         # YOUR CODE GOES HERE
+        for obstacle_x, obstacle_y, radius in obstacle_list:
+            for path_x, path_y in zip(node.path_x, node.path_y):
+                if math.dist((path_x, path_y), (obstacle_x, obstacle_y)) <= radius + self.robot_radius:
+                    return False
+                
         return True
 
-    def draw_graph(self, rnd=None):
+
+    def draw_graph(self, rnd: Optional["RRT.Node"] = None) -> None:
         plt.clf()
         # for stopping simulation with the esc key.
         plt.gcf().canvas.mpl_connect(
@@ -378,21 +445,22 @@ class RRT:
         plt.plot(self.start.x, self.start.y, "xr")
         plt.plot(self.end.x, self.end.y, "xr")
         plt.axis("equal")
-        plt.axis([self.min_rand, self.max_rand, self.min_rand, self.max_rand])
+        plt.axis((self.min_rand, self.max_rand, self.min_rand, self.max_rand))
         plt.grid(True)
         plt.pause(0.01)
 
     @staticmethod
-    def plot_circle(x, y, size, color="-b"):
+    def plot_circle(x: float, y: float, size: float, color: str = "-b") -> None:
         deg = list(range(0, 360, 5))
         deg.append(0)
         xl = [x + size * math.cos(np.deg2rad(d)) for d in deg]
         yl = [y + size * math.sin(np.deg2rad(d)) for d in deg]
         plt.plot(xl, yl, color)
-        
-def main(goal_x=6.0, goal_y=10.0):
+
+
+def main(goal_x: float = 6.0, goal_y: float = 10.0) -> None:
     print("start " + __file__)
-    obstacleList = [
+    obstacleList: List[Tuple[float, float, float]] = [
         (5, 5, 1),
         (3, 6, 2),
         (3, 8, 2),
@@ -425,5 +493,20 @@ def main(goal_x=6.0, goal_y=10.0):
     plt.ioff()  # Disable interactive mode
     plt.show()  # This will block until the window is closed
 
+
 if __name__ == "__main__":
     main()  # Run standard RRT
+
+"""
+Qeustion 6 response:
+
+Setting expand_dist to something tiny like 0.1 will fail in two ways:
+
+Most critically, this places it beneath the stock path_resolution. steer takes floor(extend_length / path_resolution) increments.
+This would work out to 0 under the above conditions path_resolution must be reduced below expand_dist.
+
+That alone will likely not be enough. Our steps are now quite tiny, and we will need to massively
+boost the max time steps to compensate, lest the simulation end before the goal is reached.
+
+"""
+
