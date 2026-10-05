@@ -14,7 +14,7 @@ Instructions:
 3. The main algorithm steps are in the `planning` method
 4. Test your implementation with different obstacle configurations in main()
 
-Full Name: ADD YOUR NAME HERE
+Full Name: JEFFREY MITCHELL
 """
 
 import math
@@ -23,6 +23,8 @@ from typing import Dict, List, Optional, Tuple
 import matplotlib.pyplot as plt
 
 show_animation = True
+# Set to True to run the Question 3 environment instead of the original one
+USE_Q3_ENVIRONMENT = False
 
 
 class AStarPlanner:
@@ -57,20 +59,23 @@ class AStarPlanner:
             self.motion: List of possible movement directions and their costs
         """
         # Grid resolution - determines size of each grid cell
-        self.resolution = resolution
+        self.resolution: float = resolution
         # Robot's physical size for collision checking
-        self.robot_radius = robot_radius
+        self.robot_radius: float = robot_radius
         # Grid world boundaries
-        self.min_x, self.min_y = 0, 0
-        self.max_x, self.max_y = 0, 0
+        self.min_x: float = 0
+        self.min_y: float = 0
+        self.max_x: float = 0
+        self.max_y: float = 0
         # 2D array marking obstacle locations
-        self.obstacle_map = None
+        self.obstacle_map: List[List[bool]]
         # Grid dimensions in cells
-        self.x_width, self.y_width = 0, 0
+        self.x_width: int = 0
+        self.y_width: int = 0
         # Create obstacle map from given coordinates
         self.calc_obstacle_map(obstacle_x, obstacle_y)
         # Get possible movement directions
-        self.motion = self.get_motion_model()
+        self.motion: List[List[float]] = self.get_motion_model()
 
     class Node:
         """A node in the A* search grid."""
@@ -85,10 +90,10 @@ class AStarPlanner:
                 cost: Cost to reach this node from start
                 parent_index: Index of parent node in the closed set
             """
-            self.x = x  # index of grid
-            self.y = y  # index of grid
-            self.cost = cost
-            self.parent_index = parent_index
+            self.x: int = x  # index of grid
+            self.y: int = y  # index of grid
+            self.cost: float = cost
+            self.parent_index: int = parent_index
 
     def planning(
         self, start_x: float, start_y: float, goal_x: float, goal_y: float
@@ -132,14 +137,20 @@ class AStarPlanner:
             -1,
         )
 
-        open_set, closed_set = dict(), dict()
+        open_set: Dict[int, AStarPlanner.Node] = dict()
+        closed_set: Dict[int, AStarPlanner.Node] = dict()
         open_set[self.calc_grid_index(start_node)] = start_node
+        goal_idx = self.calc_grid_index(goal_node)
 
         while True:
-            current = None
             # YOUR CODE GOES HERE
             # Check if open_set is empty. If so, break out of the while loop
             # Find the node in open_set with least cost to come (g) + cost to go (heuristic) and assign it to current
+            # we a* now boys
+            if not open_set: break
+            
+            current_idx, current = min(open_set.items(), key= lambda item: item[1].cost + self.calc_heuristic(item[1], goal_node))
+
             # DO NOT ALTER THE FOLLOWING LINES
             if show_animation:
                 plt.plot(
@@ -161,6 +172,38 @@ class AStarPlanner:
             # If the neighboring cell is not within bounds of the state space, move on.
             # If the neighboring cell is neither in open_set or closed_set, add it to the open set.
             # If the neighboring cell is a part of the open cell, will expanding from the current node reduce the total cost to reach the neighbor? If so, replace it with the current node. (Essentially changing its parent and cost).
+            if current_idx == goal_idx:
+                goal_node.parent_index = current.parent_index
+                goal_node.cost = current.cost
+                break
+
+            open_set.pop(current_idx)
+            closed_set[current_idx] = current
+
+            for dx, dy, move_cost in self.motion:
+                prospective_neighbor = self.Node(
+                    current.x + int(dx),
+                    current.y + int(dy),
+                    current.cost + move_cost,
+                    current_idx,
+                )
+                neighbor_idx = self.calc_grid_index(prospective_neighbor)
+
+                if neighbor_idx in closed_set: continue
+                # bounds and obstacles
+                if not self.verify_node(prospective_neighbor): continue
+
+                if neighbor_idx not in open_set:
+                    open_set[neighbor_idx] = prospective_neighbor
+                else:
+                    existing_neighbor = open_set[neighbor_idx]
+                    if prospective_neighbor.cost <= existing_neighbor.cost:
+                        existing_neighbor.cost = prospective_neighbor.cost
+                        existing_neighbor.parent_index = current_idx
+
+        # Question 3: number of nodes explored, measured as OPEN + CLOSED
+        print(f"Nodes explored (open + closed): {len(open_set) + len(closed_set)}")
+
         rx, ry = self.calc_final_path(goal_node, closed_set)
         return rx, ry
 
@@ -177,9 +220,8 @@ class AStarPlanner:
         Returns:
             rx, ry: Lists of x and y coordinates of the path
         """
-        rx, ry = [self.calc_grid_position(goal_node.x, self.min_x)], [
-            self.calc_grid_position(goal_node.y, self.min_y)
-        ]
+        rx: List[float] = [self.calc_grid_position(goal_node.x, self.min_x)]
+        ry: List[float] = [self.calc_grid_position(goal_node.y, self.min_y)]
         parent_index = goal_node.parent_index
         while parent_index != -1:
             n = closed_set[parent_index]
@@ -244,6 +286,16 @@ class AStarPlanner:
         """
         return node.y * self.x_width + node.x
 
+    # tiny routine to detect OOB
+    def bounds_check(self, node: Node) -> bool:
+        if (node.x < 0 or node.x >= self.x_width) or (node.y < 0 or node.y >= self.y_width):
+            return False
+
+        return True
+    # tiny routine to detect collision with obstacles, provided obstacle_map maintained
+    def obstacle_check(self, node: Node) -> bool:
+        return not self.obstacle_map[node.x][node.y]
+
     def verify_node(self, node: Node) -> bool:
         """
         Verify if a node is valid for path planning.
@@ -271,7 +323,20 @@ class AStarPlanner:
         # YOUR CODE GOES HERE
         # Verify if the node is within bounds and isn't colliding with an obstacle
         # Return False if node is invalid. Otherwise, return True
-        pass
+
+        return self.bounds_check(node) and self.obstacle_check(node)
+
+    # routine that takes a point, all obstacles and checks for collision given known radius
+    def is_grid_cell_blocked(self, x: int, y: int, obstacle_x: List[float], obstacle_y: List[float]) -> bool:
+
+        # convert grid indices back to world indices
+        px = self.calc_grid_position(x, self.min_x)
+        py = self.calc_grid_position(y, self.min_y)
+
+        for obstacle in zip(obstacle_x, obstacle_y):
+            if math.dist((px, py), obstacle) < self.robot_radius: return True
+
+        return False
 
     def calc_obstacle_map(
         self, obstacle_x: List[float], obstacle_y: List[float]
@@ -312,13 +377,26 @@ class AStarPlanner:
         """
         # Find the minimum and maximum bounds for x and y
         # Use the bounds to obtain the width along x and y axes and store them in self.x_width and self.y_width respectively
+
+        # windowing in on our obstacles, which implicitly sets the bounds of our sim. Pretty funky
+        self.min_x = min(obstacle_x)
+        self.min_y = min(obstacle_y)
+
+        self.max_x = max(obstacle_x)
+        self.max_y = max(obstacle_y)
+
+        self.x_width = round((self.max_x - self.min_x) / self.resolution)
+        self.y_width = round((self.max_y - self.min_y) / self.resolution)
+
         # DO NOT ALTER THE NEXT TWO LINES.
         self.obstacle_map = [
             [False for _ in range(self.y_width)] for _ in range(self.x_width)
         ]
-        pass
         # For each cell in self.obstacle_map, use the calculations above to assign it as
         # boolean True if the cell overlaps with an obstacle and boolean False if it doesn't
+        for x in range(self.x_width):
+            for y in range(self.y_width):
+                self.obstacle_map[x][y] = self.is_grid_cell_blocked(x,y,obstacle_x,obstacle_y)
 
     @staticmethod
     def get_motion_model() -> List[List[float]]:
@@ -329,7 +407,7 @@ class AStarPlanner:
             List of [dx, dy, cost] for each possible movement
         """
         # dx, dy, cost
-        motion = [
+        motion: List[List[float]] = [
             [1, 0, 1],
             [0, 1, 1],
             [-1, 0, 1],
@@ -342,7 +420,7 @@ class AStarPlanner:
         return motion
 
 
-def main():
+def main() -> None:
     print(__file__ + " start!!")
 
     # start and goal position
@@ -352,9 +430,12 @@ def main():
     goal_y = 50.0  # [m]
     cell_size = 2.0  # [m]
     robot_radius = 1.0  # [m]
+    top_bounds = 60.0
+    
 
     # Feel free to change the obstacle positions and test the implementation on various scenarios
-    obstacle_x, obstacle_y = [], []
+    obstacle_x: List[float] = []
+    obstacle_y: List[float] = []
     for i in range(0, 60):
         obstacle_x.append(i)
         obstacle_y.append(0.0)
@@ -367,12 +448,40 @@ def main():
     for i in range(0, 61):
         obstacle_x.append(0.0)
         obstacle_y.append(i)
-    for i in range(0, 40):
-        obstacle_x.append(20.0)
-        obstacle_y.append(i)
-    for i in range(0, 40):
-        obstacle_x.append(40.0)
-        obstacle_y.append(60.0 - i)
+
+    if USE_Q3_ENVIRONMENT:
+        
+        for x in range(int(start_x - 1), int(goal_x + 1)):
+            y1 = x + robot_radius * 2
+            obstacle_x.append(x)
+            obstacle_y.append(y1)
+            obstacle_x.append(x)
+            obstacle_y.append(y1+cell_size)
+            
+            y2 = x - robot_radius * 2
+            obstacle_x.append(x)
+            obstacle_y.append(y2)
+            obstacle_x.append(x)
+            obstacle_y.append(y2-cell_size)
+            
+        for i in range(0, int(top_bounds + 1)):
+            obstacle_x.append(start_x - robot_radius - cell_size)
+            obstacle_y.append(i)
+            obstacle_x.append(start_x - robot_radius)
+            obstacle_y.append(i)
+            
+        for i in range(0, int(top_bounds + 1)):
+            obstacle_x.append(goal_x + robot_radius + cell_size)
+            obstacle_y.append(i)
+            obstacle_x.append(goal_x + robot_radius)
+            obstacle_y.append(i)
+    else:
+        for i in range(0, 40):
+            obstacle_x.append(20.0)
+            obstacle_y.append(i)
+        for i in range(0, 40):
+            obstacle_x.append(40.0)
+            obstacle_y.append(60.0 - i)
 
     if show_animation:  # pragma: no cover
         plt.plot(obstacle_x, obstacle_y, ".k")
@@ -392,3 +501,16 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+"""
+Question 4 response:
+
+I took the writeup to mean "Can A* be slower than Dijkstra's in terms of wall-time on a consistent CPU".
+To be slower under these conditions, the computation of the heuristic must be computationally expensive
+or slow itself. A properly configured hueristic will lead to more efficient exploration of nodes: fewer or
+equal to what is explored by Dijkstra's for a given graph. As A* will likely save time on the number of nodes
+explored in generating its solution, the computation of the heuristic must be sufficiently slow to offset those gains.
+For a concrete example, simply add a sleep statement to the heuristic calculation in this file to simulate a slow
+calculation. Despite exploring fewer nodes, the runtime will suffer. Surely there are real world examples of
+expensive heuristics, but I've not been exposed to them.
+"""

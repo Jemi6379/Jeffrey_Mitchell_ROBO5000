@@ -24,6 +24,8 @@ from typing import Dict, List, Optional, Tuple
 import matplotlib.pyplot as plt
 
 show_animation = True
+# Set to True to run the Question 3 environment instead of the original one
+USE_Q3_ENVIRONMENT = False
 
 
 class Dijkstra:
@@ -149,6 +151,8 @@ class Dijkstra:
             # YOUR CODE GOES HERE
             # Find the Node in open_set with least cost and assign it to current
             # current = None  # Replace None with code to assign the least costly node in open_set
+            if not open_set: break
+            
             current_idx, current = min(open_set.items(), key= lambda item: item[1].cost)
                         
             # DO NOT ALTER THE NEXT 8 LINES.
@@ -203,6 +207,9 @@ class Dijkstra:
                         existing_neighbor.cost = prospective_neighbor.cost
                         existing_neighbor.parent_index = current_idx
                     
+        # Question 3: number of nodes explored, measured as OPEN + CLOSED
+        print(f"Nodes explored (open + closed): {len(open_set) + len(closed_set)}")
+
         rx, ry = self.calc_final_path(goal_node, closed_set)
         return rx, ry
 
@@ -413,6 +420,7 @@ def main() -> None:
     goal_y = 50.0  # [m]
     cell_size = 2.0  # [m]
     robot_radius = 1.0  # [m]
+    top_bounds = 60.0
 
     # Feel free to change the obstacle positions and test the implementation on various scenarios
     obstacle_x: List[float] = []
@@ -429,12 +437,40 @@ def main() -> None:
     for i in range(0, 61):
         obstacle_x.append(0.0)
         obstacle_y.append(i)
-    for i in range(0, 40):
-        obstacle_x.append(20.0)
-        obstacle_y.append(i)
-    for i in range(0, 40):
-        obstacle_x.append(40.0)
-        obstacle_y.append(60.0 - i)
+
+    if USE_Q3_ENVIRONMENT:
+        
+        for x in range(int(start_x - 1), int(goal_x + 1)):
+            y1 = x + robot_radius * 2
+            obstacle_x.append(x)
+            obstacle_y.append(y1)
+            obstacle_x.append(x)
+            obstacle_y.append(y1+cell_size)
+            
+            y2 = x - robot_radius * 2
+            obstacle_x.append(x)
+            obstacle_y.append(y2)
+            obstacle_x.append(x)
+            obstacle_y.append(y2-cell_size)
+            
+        for i in range(0, int(top_bounds + 1)):
+            obstacle_x.append(start_x - robot_radius - cell_size)
+            obstacle_y.append(i)
+            obstacle_x.append(start_x - robot_radius)
+            obstacle_y.append(i)
+            
+        for i in range(0, int(top_bounds + 1)):
+            obstacle_x.append(goal_x + robot_radius + cell_size)
+            obstacle_y.append(i)
+            obstacle_x.append(goal_x + robot_radius)
+            obstacle_y.append(i)
+    else:
+        for i in range(0, 40):
+            obstacle_x.append(20.0)
+            obstacle_y.append(i)
+        for i in range(0, 40):
+            obstacle_x.append(40.0)
+            obstacle_y.append(60.0 - i)
 
     if show_animation:
         plt.plot(obstacle_x, obstacle_y, ".k")
